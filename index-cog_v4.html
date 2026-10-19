@@ -1,0 +1,1858 @@
+<!DOCTYPE html>
+<html lang="ja">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" /> 
+  
+        <link rel='stylesheet' href='https://unpkg.com/maplibre-gl@5.0.1/dist/maplibre-gl.css' />      
+        <script src='https://unpkg.com/maplibre-gl@5.0.1/dist/maplibre-gl.js'></script> 
+<!--        <script src="https://unpkg.com/geotiff/dist-browser/geotiff.js"></script>
+    -->
+<title>クラウドcogの表示</title>
+    </head>
+    <body>
+        <style>
+            .map-overlay {
+                font: 12px/1.4 "Helvetica Neue", Arial, sans-serif;
+
+                position: absolute;
+                top: 40px;
+                left: 10px;
+
+                width: 290px;
+                max-height: calc(100vh - 70px);
+
+                padding: 10px;
+                overflow-y: auto;
+
+                background-color: rgba(240, 248, 255, 0.95);
+
+                border: 1px solid #aaa;
+                border-radius: 5px;
+
+                z-index: 1000;
+            }
+
+            #openImageDialogButton {
+                width: 100%;
+                padding: 8px;
+
+                font-weight: bold;
+
+                border: 1px solid #777;
+                border-radius: 4px;
+
+                background: #ffffff;
+                cursor: pointer;
+            }
+
+            #openImageDialogButton:hover {
+                background: #e8f3ff;
+            }
+
+            .panel-title {
+                margin-top: 12px;
+                margin-bottom: 6px;
+                font-weight: bold;
+            }
+
+            #noLayerMessage {
+                padding: 8px;
+                color: #666;
+                text-align: center;
+                background: rgba(255, 255, 255, 0.7);
+            }
+    
+            .map-overlay fieldset {
+                border: none;
+                padding: 0;
+                margin: 0 0 10px;
+            }
+
+            .modal {
+                display: none;
+
+                position: fixed;
+                z-index: 5000;
+
+                left: 0;
+                top: 0;
+
+                width: 100%;
+                height: 100%;
+
+                overflow: auto;
+
+                background-color: rgba(0, 0, 0, 0.45);
+            }
+
+            .modal-content {
+                width: min(560px, calc(100% - 40px));
+
+                margin: 70px auto;
+                padding: 18px;
+
+                background-color: #ffffff;
+
+                border: 1px solid #777;
+                border-radius: 7px;
+
+                box-shadow: 0 5px 25px rgba(0, 0, 0, 0.35);
+            }
+
+            .modal-header {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+
+                margin-bottom: 12px;
+            }
+
+            .modal-header h3 {
+                margin: 0;
+            }
+
+            .modal-close-x {
+                padding: 0 7px;
+
+                font-size: 24px;
+                line-height: 1;
+
+                border: none;
+                background: transparent;
+                cursor: pointer;
+            }
+
+            .modal-form-row {
+                margin-bottom: 12px;
+            }
+
+            .modal-form-row label {
+                display: block;
+
+                margin-bottom: 4px;
+
+                font-weight: bold;
+            }
+
+            .modal-form-row input[type="text"],
+            .modal-form-row select,
+            .modal-form-row textarea {
+                width: 100%;
+                box-sizing: border-box;
+
+                padding: 7px;
+
+                border: 1px solid #aaa;
+                border-radius: 4px;
+            }
+
+            .modal-form-row textarea {
+                font-family: monospace;
+                resize: vertical;
+                overflow-wrap: anywhere;
+            }
+
+            .modal-form-row input[type="range"] {
+                width: 100%;
+            }
+
+            .modal-buttons {
+                display: flex;
+                justify-content: flex-end;
+                gap: 8px;
+
+                margin-top: 15px;
+            }
+
+            .modal-buttons button {
+                min-width: 100px;
+                padding: 7px 12px;
+
+                cursor: pointer;
+            }
+
+            .primary-button {
+                color: white;
+                background: #1769aa;
+                border: 1px solid #0f568d;
+                border-radius: 4px;
+            }
+
+            #imageDialogMessage {
+                min-height: 20px;
+                color: #c62828;
+                overflow-wrap: anywhere;
+            }
+
+            .dynamic-layer-item {
+                margin-bottom: 8px;
+                padding: 7px;
+
+                background: #ffffff;
+
+                border: 1px solid #bbb;
+                border-radius: 4px;
+            }
+
+            .dynamic-layer-header {
+                display: flex;
+                align-items: center;
+                gap: 5px;
+            }
+
+            .dynamic-layer-name {
+                flex: 1;
+                min-width: 0;
+
+                font-weight: bold;
+                overflow-wrap: anywhere;
+            }
+
+            .dynamic-layer-type {
+                margin-top: 2px;
+
+                color: #666;
+                font-size: 10px;
+            }
+
+            .dynamic-layer-buttons {
+                display: flex;
+                gap: 3px;
+            }
+
+            .dynamic-layer-buttons button {
+                padding: 2px 5px;
+                cursor: pointer;
+            }
+
+            .zoom-layer-button {
+                color: #174a7e;
+            }
+
+            .delete-layer-button {
+                color: white;
+                background: #c0392b;
+                border: 1px solid #9f2f23;
+            }
+
+            .dynamic-opacity-row {
+                display: flex;
+                align-items: center;
+                gap: 5px;
+
+                margin-top: 6px;
+            }
+
+            .dynamic-opacity-row input[type="range"] {
+                width: 135px;
+                flex: none;
+            }
+
+            .dynamic-opacity-row .opacity-value {
+                width: 24px;
+                text-align: left;
+            }
+
+            .dynamic-opacity-row .layer-info-button {
+                margin-left: auto;
+
+                padding: 1px 3px;
+
+                color: #222;
+                font-size: 12px;
+                font-weight: bold;
+
+                background: transparent;
+                border: none;
+                cursor: pointer;
+            }
+
+            .dynamic-opacity-row .layer-info-icon {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+
+                width: 17px;
+                height: 17px;
+                padding: 0;
+
+                color: white;
+                font-size: 12px;
+                font-weight: bold;
+
+                background: #2196f3;
+                border: none;
+                border-radius: 2px;
+
+                cursor: pointer;
+            }
+
+            .dynamic-opacity-row input {
+                width: 100%;
+            }
+
+           .home-button {
+                position: absolute;
+                top: 2px;
+                left: 0px;
+                background-color: transparent;
+                border: none;
+                padding: 2px 5px;
+                cursor: pointer;
+                z-index: 1;
+            }
+            .home-button fieldset{
+                border: none;
+                padding: 0;
+                margin: 0 0 10px;
+            }
+
+            .map-info {
+                position: absolute;
+                top: 10px;
+                right: 10px;
+                z-index: 1000;
+
+                background: rgba(255,255,255,0.85);
+                padding: 8px;
+
+                border-radius: 4px;
+                border: 1px solid #ccc;
+
+                font-family: monospace;
+                font-size: 12px;
+                line-height: 1.4;
+            }
+
+            .dynamic-layer-info-row {
+                display: flex;
+                align-items: center;
+                justify-content: flex-end;
+                gap: 5px;
+
+                margin-top: 4px;
+            }
+
+            .layer-info-button {
+                padding: 1px 4px;
+
+                color: #222;
+                font-size: 12px;
+                font-weight: bold;
+
+                background: transparent;
+                border: none;
+
+                cursor: pointer;
+            }
+
+            .layer-info-button:hover {
+                color: #1769aa;
+                text-decoration: underline;
+            }
+
+            .layer-info-icon {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+
+                width: 16px;
+                height: 16px;
+
+                color: white;
+                font-size: 12px;
+                font-weight: bold;
+                font-family: serif;
+                line-height: 1;
+
+                background: #2196f3;
+                border: 1px solid #1684d5;
+                border-radius: 2px;
+
+                cursor: pointer;
+            }
+
+            .layer-info-icon:hover {
+                background: #0d7fd3;
+            }
+
+        </style>
+
+
+        <div id="map" style="height: 100vh"></div>
+<!--       <script type="module" src="/bangkok/bangkok-3.js"></script> -->
+
+        <div class="map-overlay">
+            <button id="openImageDialogButton" type="button">
+                ＋ 画像追加
+            </button>
+            <div class="panel-title">画像レイヤー</div>
+            <div id="dynamicLayerList">
+                <div id="noLayerMessage">
+                    画像は追加されていません
+                </div>
+            </div>
+            <hr>
+
+            <div class="base-layer-row">
+                <label>
+                    <input
+                        type="checkbox"
+                        id="osm-layer"
+                        name="osm"
+                        checked
+                    >
+                    OpenStreetMap
+                </label>
+            </div>
+        </div>
+
+        <div id="mapInfo" class="map-info">
+            Center Lon: ---<br>
+            Center Lat: ---<br>
+            Zoom: ---<br>
+            Click: ---
+        </div>
+
+        <div id="imageDialog" class="modal">
+
+            <div class="modal-content">
+
+                <div class="modal-header">
+                    <h3>画像レイヤーの追加</h3>
+
+                    <button
+                        id="closeImageDialogX"
+                        type="button"
+                        class="modal-close-x"
+                        title="閉じる"
+                    >
+                        ×
+                    </button>
+                </div>
+
+                <div class="modal-form-row">
+                    <label for="imageType">
+                        画像の種類
+                    </label>
+
+                    <select id="imageType">
+                        <option value="sentinel2">
+                            Sentinel-2 COG
+                        </option>
+
+                        <option value="sentinel1">
+                            Sentinel-1 TileJSON
+                        </option>
+
+                        <option value="hotosm-tms">
+                            HOTOSM XYZ/TMS
+                        </option>
+
+                        <option value="hotosm-stac">
+                            HOTOSM STAC
+                        </option>
+
+                        <option value="swisstopo">
+                            Swisstopo COG
+                        </option>
+
+                        <option value="xyz">
+                            一般 XYZ/TMS
+                        </option>
+
+                        <option value="cog">
+                            一般 COG
+                        </option>
+                    </select>
+                </div>
+
+                <div class="modal-form-row">
+                    <label for="newImageName">
+                        画像名
+                    </label>
+
+                    <input
+                        type="text"
+                        id="newImageName"
+                        placeholder="例：ネパール洪水 HOTOSM"
+                    >
+                </div>
+
+                <div class="modal-form-row">
+                    <label for="newImageUrl">
+                        URL
+                    </label>
+
+                    <textarea
+                        id="newImageUrl"
+                        rows="6"
+                        placeholder="画像またはタイルのURLを入力してください"
+                    ></textarea>
+                </div>
+
+                <div class="modal-form-row">
+                    <label for="newImageOpacity">
+                        初期透明度：
+                        <span id="newImageOpacityValue">0.7</span>
+                    </label>
+
+                    <input
+                        type="range"
+                        id="newImageOpacity"
+                        min="0"
+                        max="10"
+                        step="1"
+                        value="7"
+                    >
+                </div>
+
+                <div id="imageDialogMessage"></div>
+
+                <div class="modal-buttons">
+
+                    <button
+                        id="loadNewImageButton"
+                        type="button"
+                        class="primary-button"
+                    >
+                        表示
+                    </button>
+
+                    <button
+                        id="cancelImageDialogButton"
+                        type="button"
+                    >
+                        キャンセル
+                    </button>
+
+                </div>
+
+            </div>
+
+        </div>   
+
+        <div id="layerInfoDialog" class="modal">
+
+            <div class="modal-content">
+
+                <div class="modal-header">
+
+                    <h3>画像レイヤー情報</h3>
+
+                    <button
+                        id="closeLayerInfoDialogX"
+                        type="button"
+                        class="modal-close-x"
+                        title="閉じる"
+                    >
+                        ×
+                    </button>
+
+                </div>
+
+                <div id="layerInfoContent"></div>
+
+                <div class="modal-buttons">
+
+                    <button
+                        id="closeLayerInfoDialogButton"
+                        type="button"
+                        class="primary-button"
+                    >
+                        閉じる
+                    </button>
+
+                </div>
+
+            </div>
+
+        </div>
+        
+<script>
+
+const map=new maplibregl.Map({
+    container: 'map',
+        center: [100.49,13.76],
+        zoom: 10,
+        style:{
+            version: 8,
+            sources: {      
+                osm:{
+                    type: 'raster',
+                    tiles: [
+                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    ],
+                    tileSize: 256,
+                    maxzoom: 24,
+                    attribution: '&copy: <a href="http://www.openstreetmap.org/copyright"</a>OpenStreetMap contributors',
+                },
+            }, 
+                layers: [
+                    {
+                        id: 'osm-layer',
+                        source: 'osm',
+                        type: 'raster',
+                    },                                     
+                ],
+            },
+        });
+
+// add function on 27 August 2026
+async function loadCog(url, sourceId, layerId, opacity,attribution="") {
+
+    const addedImage =
+        'https://tiles.rdnt.io/tiles/{z}/{x}/{y}?url=' +
+        encodeURIComponent(url);
+
+    if (map.getSource(sourceId)) {
+
+        if (map.getLayer(layerId)) {
+            map.removeLayer(layerId);
+        }
+
+        map.removeSource(sourceId);
+    }
+
+    map.addSource(sourceId,{
+        type:'raster',
+        tiles:[addedImage],
+        tileSize:256,
+        minzoom:0,
+        attribution: attribution
+    });
+
+    map.addLayer({
+        id:layerId,
+        source:sourceId,
+        type:'raster',
+        paint:{
+            'raster-opacity':opacity
+        }
+   });
+
+}
+
+// XYZ/TMS形式のラスタータイルを直接表示する
+async function loadRasterTiles(
+    tileUrl,
+    sourceId,
+    layerId,
+    opacity,
+    scheme = "xyz",
+    attribution = ""
+) {
+    // 同じIDのレイヤーがあれば削除
+    if (map.getLayer(layerId)) {
+        map.removeLayer(layerId);
+    }
+
+    // 同じIDのソースがあれば削除
+    if (map.getSource(sourceId)) {
+        map.removeSource(sourceId);
+    }
+
+    map.addSource(sourceId, {
+        type: "raster",
+        tiles: [tileUrl],
+        tileSize: 256,
+        minzoom: 0,
+        maxzoom: 24,
+
+        // XYZなら "xyz"、昔ながらのTMSなら "tms"
+        scheme: scheme,
+        attribution: attribution
+    });
+
+    map.addLayer({
+        id: layerId,
+        source: sourceId,
+        type: "raster",
+        paint: {
+            "raster-opacity": opacity
+        }
+    });
+}
+
+// added on 2026-10-15
+async function loadSTAC(
+    url,
+    sourceId,
+    layerId,
+    opacity,
+    attribution = ""
+) {
+    const response = await fetch(url);
+
+    if (!response.ok) {
+        throw new Error(
+            `STAC取得失敗: HTTP ${response.status}`
+        );
+    }
+
+    const stac = await response.json();
+
+    if (
+        !stac.assets ||
+        !stac.assets.visual ||
+        !stac.assets.visual.href
+    ) {
+        throw new Error(
+            "STACに assets.visual.href がありません"
+        );
+    }
+
+    const cogUrl = stac.assets.visual.href;
+
+    await loadCog(
+        cogUrl,
+        sourceId,
+        layerId,
+        opacity,
+        attribution
+    );
+
+    let bounds = null;
+
+    if (
+        Array.isArray(stac.bbox) &&
+        stac.bbox.length >= 4
+    ) {
+        bounds = [
+            [stac.bbox[0], stac.bbox[1]],
+            [stac.bbox[2], stac.bbox[3]]
+        ];
+
+        map.fitBounds(bounds, {
+            padding: 30
+        });
+    }
+
+    return {
+        bounds: bounds,
+        actualUrl: cogUrl
+    };
+}
+
+// revised on 2026-10-15
+async function loadTileJson(
+    tilejsonUrl,
+    sourceId,
+    layerId,
+    opacity,
+    attribution=""
+) {
+    const response = await fetch(tilejsonUrl);
+
+    if (!response.ok) {
+        throw new Error(
+            `TileJSON取得失敗: HTTP ${response.status}`
+        );
+    }
+
+    const tj = await response.json();
+
+    if (map.getLayer(layerId)) {
+        map.removeLayer(layerId);
+    }
+
+    if (map.getSource(sourceId)) {
+        map.removeSource(sourceId);
+    }
+
+    map.addSource(sourceId, {
+        type: "raster",
+        tiles: tj.tiles,
+        tileSize: 256,
+        attribution: attribution
+    });
+
+    map.addLayer({
+        id: layerId,
+        source: sourceId,
+        type: "raster",
+        paint: {
+            "raster-opacity": opacity
+        }
+    });
+
+    let bounds = null;
+
+    if (
+        Array.isArray(tj.bounds) &&
+        tj.bounds.length >= 4
+    ) {
+        bounds = [
+            [tj.bounds[0], tj.bounds[1]],
+            [tj.bounds[2], tj.bounds[3]]
+        ];
+
+        map.fitBounds(bounds, {
+            padding: 30
+        });
+    }
+
+    return {
+        bounds: bounds
+    };
+}
+
+//
+async function zoomToCog(url, moveImmediately = true) {
+
+    let bounds = null;
+
+    /*
+     * Sentinel-2
+     */
+    if (
+        url.includes("earth-search-sentinel-data") ||
+        url.includes("sentinel-cogs")
+    ) {
+        try {
+            const cleanUrl = url.split("?")[0];
+            const parts = cleanUrl.split("/").filter(Boolean);
+
+            // 通常、COGファイルの一つ上のフォルダーがSTAC Item ID
+            const sceneId = decodeURIComponent(
+                parts[parts.length - 2]
+            );
+
+            console.log("Sentinel-2 sceneId =", sceneId);
+
+            /*
+             * URLによって新旧コレクションが異なる可能性があるため、
+             * 順番に検索する。
+             */
+            const collections = [
+                "sentinel-2-c1-l2a",
+                "sentinel-2-l2a",
+                "sentinel-2-pre-c1-l2a"
+            ];
+
+            for (const collectionId of collections) {
+
+                const response = await fetch(
+                    "https://earth-search.aws.element84.com/v1/search",
+                    {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({
+                            collections: [collectionId],
+                            ids: [sceneId],
+                            limit: 1
+                        })
+                    }
+                );
+
+                if (!response.ok) {
+                    console.warn(
+                        `${collectionId}: HTTP ${response.status}`
+                    );
+                    continue;
+                }
+
+                const result = await response.json();
+
+                console.log(
+                    `Earth Search result: ${collectionId}`,
+                    result
+                );
+
+                if (
+                    Array.isArray(result.features) &&
+                    result.features.length > 0
+                ) {
+                    const item = result.features[0];
+
+                    if (
+                        Array.isArray(item.bbox) &&
+                        item.bbox.length >= 4
+                    ) {
+                        bounds = [
+                            [item.bbox[0], item.bbox[1]],
+                            [item.bbox[2], item.bbox[3]]
+                        ];
+
+                        console.log(
+                            "Sentinel-2 bounds =",
+                            bounds
+                        );
+
+                        break;
+                    }
+                }
+            }
+
+            if (!bounds) {
+                console.warn(
+                    "Sentinel-2のSTAC Itemを取得できませんでした。",
+                    "sceneId =",
+                    sceneId
+                );
+            }
+
+        } catch (error) {
+            console.error(
+                "Sentinel-2範囲取得エラー:",
+                error
+            );
+        }
+    }
+
+    /*
+     * Swisstopo
+     */
+    else if (url.includes("data.geo.admin.ch")) {
+
+        try {
+            const cleanUrl = url.split("?")[0];
+            const parts = cleanUrl.split("/").filter(Boolean);
+
+            const itemId =
+                parts[parts.length - 2];
+
+            const collectionId =
+                parts[parts.length - 3];
+
+            const stacUrl =
+                "https://data.geo.admin.ch/api/stac/v0.9/" +
+                `collections/${collectionId}/items/${itemId}`;
+
+            console.log("Swisstopo STAC URL =", stacUrl);
+
+            const response = await fetch(stacUrl);
+
+            if (!response.ok) {
+                throw new Error(
+                    `Swisstopo STAC取得失敗: HTTP ${response.status}`
+                );
+            }
+
+            const item = await response.json();
+
+            if (
+                Array.isArray(item.bbox) &&
+                item.bbox.length >= 4
+            ) {
+                bounds = [
+                    [item.bbox[0], item.bbox[1]],
+                    [item.bbox[2], item.bbox[3]]
+                ];
+            }
+
+        } catch (error) {
+            console.error(
+                "Swisstopo範囲取得エラー:",
+                error
+            );
+        }
+    }
+
+    /*
+     * 追加直後に画像範囲へ移動
+     */
+    if (bounds && moveImmediately) {
+        map.fitBounds(bounds, {
+            padding: 30,
+            duration: 800
+        });
+    }
+
+    return bounds;
+}
+
+// added on 2026-10-15    
+async function getHotosmBoundsFromRasterUrl(url) {
+
+    const match = url.match(
+        /\/raster\/collections\/([^/]+)\/items\/([^/]+)\//
+    );
+
+    if (!match) {
+        return null;
+    }
+
+    const collectionId = match[1];
+    const itemId = match[2];
+
+    const stacUrl =
+        `https://api.imagery.hotosm.org/stac/collections/` +
+        `${collectionId}/items/${itemId}`;
+
+    const response = await fetch(stacUrl);
+
+    if (!response.ok) {
+        throw new Error(
+            `HOTOSM STAC取得失敗: HTTP ${response.status}`
+        );
+    }
+
+    const stac = await response.json();
+
+    if (
+        !Array.isArray(stac.bbox) ||
+        stac.bbox.length < 4
+    ) {
+        return null;
+    }
+
+    return [
+        [stac.bbox[0], stac.bbox[1]],
+        [stac.bbox[2], stac.bbox[3]]
+    ];
+}
+
+// 画像の種類に応じて読み込み処理を分岐 added on 2026-10-15
+async function loadImageByType(
+    imageType,
+    url,
+    sourceId,
+    layerId,
+    opacity
+) {
+    let bounds = null;
+    const attribution = imageAttributions[imageType] || "";
+
+    switch (imageType) {
+
+        case "sentinel2":
+
+            bounds = await zoomToCog(
+                url,
+                false
+            );
+
+            await loadCog(
+                url,
+                sourceId,
+                layerId,
+                opacity,
+                attribution
+            );
+
+            if (bounds) {
+                map.fitBounds(bounds, {
+                    padding: 30,
+                    duration: 800
+                });
+            }
+
+        break;
+
+
+        case "sentinel1": {
+
+            const result = await loadTileJson(
+                url,
+                sourceId,
+                layerId,
+                opacity,
+                attribution
+            );
+
+            bounds = result.bounds;
+            break;
+        }
+
+        case "hotosm-tms":
+
+            if (
+                !url.includes("{z}") ||
+                !url.includes("{x}") ||
+                !url.includes("{y}")
+            ) {
+                throw new Error(
+                    "HOTOSMタイルURLには {z}/{x}/{y} が必要です"
+                );
+            }
+
+            await loadRasterTiles(
+                url,
+                sourceId,
+                layerId,
+                opacity,
+                "xyz",
+                attribution
+            );
+
+            bounds =
+                await getHotosmBoundsFromRasterUrl(url);
+
+            if (bounds) {
+                map.fitBounds(bounds, {
+                    padding: 30
+                });
+            }
+
+            break;
+
+        case "hotosm-stac": {
+
+            const result = await loadSTAC(
+                url,
+                sourceId,
+                layerId,
+                opacity,
+                attribution
+            );
+
+            bounds = result.bounds;
+            break;
+        }
+
+        case "swisstopo":
+
+            bounds = await zoomToCog(
+                url,
+                false
+            );
+
+            await loadCog(
+                url,
+                sourceId,
+                layerId,
+                opacity,
+                attribution
+            );
+
+            if (bounds) {
+                map.fitBounds(bounds, {
+                    padding: 30,
+                    duration: 800
+                });
+            }
+
+            break;
+
+        case "xyz":
+
+            if (
+                !url.includes("{z}") ||
+                !url.includes("{x}") ||
+                !url.includes("{y}")
+            ) {
+                throw new Error(
+                    "XYZ/TMS URLには {z}/{x}/{y} が必要です"
+                );
+            }
+
+            await loadRasterTiles(
+                url,
+                sourceId,
+                layerId,
+                opacity,
+                "xyz",
+                attribution
+            );
+
+            break;
+
+        case "cog":
+
+            bounds = await zoomToCog(
+                url,
+                false
+            );
+
+            await loadCog(
+                url,
+                sourceId,
+                layerId,
+                opacity
+            );
+
+            if (bounds) {
+                map.fitBounds(bounds, {
+                    padding: 30,
+                    duration: 800
+                });
+            }
+
+            break;
+
+        default:
+
+            throw new Error(
+                "画像の種類が正しくありません"
+            );
+    }
+
+    return {
+        bounds: bounds
+    };
+}
+
+const imageDialog =
+    document.getElementById("imageDialog");
+
+const openImageDialogButton =
+    document.getElementById("openImageDialogButton");
+
+const closeImageDialogX =
+    document.getElementById("closeImageDialogX");
+
+const cancelImageDialogButton =
+    document.getElementById("cancelImageDialogButton");
+
+const imageTypeInput =
+    document.getElementById("imageType");
+
+const newImageNameInput =
+    document.getElementById("newImageName");
+
+const newImageUrlInput =
+    document.getElementById("newImageUrl");
+
+const newImageOpacityInput =
+    document.getElementById("newImageOpacity");
+
+const newImageOpacityValue =
+    document.getElementById("newImageOpacityValue");
+
+const imageDialogMessage =
+    document.getElementById("imageDialogMessage");
+
+function openImageDialog() {
+
+    imageDialog.style.display = "block";
+
+    imageDialogMessage.textContent = "";
+    imageDialogMessage.style.color = "#c62828";
+
+    newImageNameInput.focus();
+}
+
+function closeImageDialog() {
+
+    imageDialog.style.display = "none";
+
+    imageDialogMessage.textContent = "";
+}
+
+openImageDialogButton.addEventListener(
+    "click",
+    openImageDialog
+);
+
+closeImageDialogX.addEventListener(
+    "click",
+    closeImageDialog
+);
+
+cancelImageDialogButton.addEventListener(
+    "click",
+    closeImageDialog
+);
+
+imageDialog.addEventListener("click", function (event) {
+
+    if (event.target === imageDialog) {
+        closeImageDialog();
+    }
+});
+
+document.addEventListener("keydown", function (event) {
+
+    if (
+        event.key === "Escape" &&
+        imageDialog.style.display === "block"
+    ) {
+        closeImageDialog();
+    }
+});
+
+newImageOpacityInput.addEventListener(
+    "input",
+    function () {
+
+        newImageOpacityValue.textContent =
+            (
+                Number(newImageOpacityInput.value) / 10
+            ).toFixed(1);
+    }
+);
+
+let dynamicLayerCounter = 0;
+
+const dynamicLayerData = new Map();
+
+const imageTypeLabels = {
+    "sentinel2": "Sentinel-2 COG",
+    "sentinel1": "Sentinel-1 TileJSON",
+    "hotosm-tms": "HOTOSM XYZ/TMS",
+    "hotosm-stac": "HOTOSM STAC",
+    "swisstopo": "Swisstopo COG",
+    "xyz": "一般 XYZ/TMS",
+    "cog": "一般 COG"
+};
+
+// add attribution 2026-10-19
+const imageAttributions = {
+
+    "sentinel2":
+        "Sentinel-2, ESA, image provided by Sentinel-2 Cloud-Optimized GeoTIFFs at https://registry.opendata.aws/sentinel-2-l2a-cogs",
+
+    "sentinel1":
+        "Sentinel-1, ESA, image provided by Microsoft Planetary Computer",
+
+    "hotosm-tms":
+        "OpenAerialMap at https://imagery.hotosm.org/",
+
+    "hotosm-stac":
+        "OpenAerialMap at https://imagery.hotosm.org/",
+
+    "swisstopo":
+        "© swisstopo",
+
+    "xyz":
+        "",
+
+    "cog":
+        ""
+};
+
+//
+
+function updateNoLayerMessage() {
+
+    const noLayerMessage =
+        document.getElementById("noLayerMessage");
+
+    if (!noLayerMessage) {
+        return;
+    }
+
+    noLayerMessage.style.display =
+        dynamicLayerData.size === 0
+            ? "block"
+            : "none";
+}
+
+// 画像レイヤーの情報を表示する 2026-10-15
+const layerInfoDialog =
+    document.getElementById("layerInfoDialog");
+
+const layerInfoContent =
+    document.getElementById("layerInfoContent");
+
+const closeLayerInfoDialogX =
+    document.getElementById("closeLayerInfoDialogX");
+
+const closeLayerInfoDialogButton =
+    document.getElementById(
+        "closeLayerInfoDialogButton"
+    );
+
+function escapeHtml(value) {
+
+    return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+}
+
+function formatLayerBounds(bounds) {
+
+    if (
+        !Array.isArray(bounds) ||
+        bounds.length < 2
+    ) {
+        return "範囲情報なし";
+    }
+
+    return (
+        `西端：${bounds[0][0].toFixed(6)}<br>` +
+        `南端：${bounds[0][1].toFixed(6)}<br>` +
+        `東端：${bounds[1][0].toFixed(6)}<br>` +
+        `北端：${bounds[1][1].toFixed(6)}`
+    );
+}
+
+function showLayerInfo(layerData) {
+
+    const typeLabel =
+        imageTypeLabels[layerData.imageType] ||
+        layerData.imageType;
+
+    layerInfoContent.innerHTML = `
+        <div class="modal-form-row">
+            <label>画像名</label>
+            <div>${escapeHtml(layerData.name)}</div>
+        </div>
+
+        <div class="modal-form-row">
+            <label>画像の種類</label>
+            <div>${escapeHtml(typeLabel)}</div>
+        </div>
+
+        <div class="modal-form-row">
+            <label>透明度</label>
+            <div>${layerData.opacity.toFixed(1)}</div>
+        </div>
+
+        <div class="modal-form-row">
+            <label>画像範囲</label>
+            <div>
+                ${formatLayerBounds(layerData.bounds)}
+            </div>
+        </div>
+
+        <div class="modal-form-row">
+            <label>URL</label>
+            <textarea
+                rows="6"
+                readonly
+            >${escapeHtml(layerData.url)}</textarea>
+        </div>
+    `;
+
+    layerInfoDialog.style.display = "block";
+}
+
+function closeLayerInfoDialog() {
+    layerInfoDialog.style.display = "none";
+}
+
+closeLayerInfoDialogX.addEventListener(
+    "click",
+    closeLayerInfoDialog
+);
+
+closeLayerInfoDialogButton.addEventListener(
+    "click",
+    closeLayerInfoDialog
+);
+
+layerInfoDialog.addEventListener(
+    "click",
+    function (event) {
+
+        if (event.target === layerInfoDialog) {
+            closeLayerInfoDialog();
+        }
+    }
+);
+
+// 画像レイヤーのコントロールUIを作成する
+function createDynamicLayerControl(layerData) {
+
+    const layerList =
+        document.getElementById("dynamicLayerList");
+
+    const item =
+        document.createElement("div");
+
+    item.className = "dynamic-layer-item";
+
+    const header =
+        document.createElement("div");
+
+    header.className = "dynamic-layer-header";
+
+    const visibleCheckbox =
+        document.createElement("input");
+
+    visibleCheckbox.type = "checkbox";
+    visibleCheckbox.checked = true;
+    visibleCheckbox.title = "表示／非表示";
+
+    const nameContainer =
+        document.createElement("div");
+
+    nameContainer.className =
+        "dynamic-layer-name";
+
+    nameContainer.textContent =
+        layerData.name;
+
+    const buttonContainer =
+        document.createElement("div");
+
+    buttonContainer.className =
+        "dynamic-layer-buttons";
+
+    const zoomButton =
+        document.createElement("button");
+
+    zoomButton.type = "button";
+    zoomButton.textContent = "移動";
+    zoomButton.className = "zoom-layer-button";
+
+    if (!layerData.bounds) {
+        zoomButton.disabled = true;
+        zoomButton.title =
+            "この画像には表示範囲情報がありません";
+    }
+
+    const deleteButton =
+        document.createElement("button");
+
+    deleteButton.type = "button";
+    deleteButton.textContent = "削除";
+    deleteButton.className =
+        "delete-layer-button";
+
+    buttonContainer.appendChild(zoomButton);
+    buttonContainer.appendChild(deleteButton);
+
+    header.appendChild(visibleCheckbox);
+    header.appendChild(nameContainer);
+    header.appendChild(buttonContainer);
+
+    const typeText =
+        document.createElement("div");
+
+    typeText.className = "dynamic-layer-type";
+
+    typeText.textContent =
+        imageTypeLabels[layerData.imageType] ||
+        layerData.imageType;
+
+    const opacityRow =
+        document.createElement("div");
+
+    opacityRow.className =
+        "dynamic-opacity-row";
+
+    const opacityLabel =
+        document.createElement("span");
+
+    opacityLabel.textContent = "透明度";
+
+    const opacitySlider =
+        document.createElement("input");
+
+    opacitySlider.type = "range";
+    opacitySlider.min = "0";
+    opacitySlider.max = "10";
+    opacitySlider.step = "1";
+
+    opacitySlider.value = String(
+        Math.round(layerData.opacity * 10)
+    );
+
+    const opacityValue =
+        document.createElement("span");
+
+    opacityValue.className =
+        "opacity-value";
+
+    opacityValue.textContent =
+        layerData.opacity.toFixed(1);
+
+    /* 情報ボタン */
+    const infoButton =
+        document.createElement("button");
+
+    infoButton.type = "button";
+    infoButton.textContent = "情報";
+    infoButton.className =
+        "layer-info-button";
+
+/* i ボタン */
+    const infoIcon =
+        document.createElement("button");
+
+    infoIcon.type = "button";
+    infoIcon.textContent = "i";
+    infoIcon.className =
+        "layer-info-icon";
+
+    infoIcon.title =
+        "画像レイヤー情報を表示";
+
+    /* 情報ボタンのクリック */
+    infoButton.addEventListener(
+        "click",
+        function () {
+            showLayerInfo(layerData);
+        }
+    );
+
+
+    /* i ボタンのクリック */
+    infoIcon.addEventListener(
+        "click",
+        function () {
+            showLayerInfo(layerData);
+        }
+    );
+
+    opacityRow.appendChild(opacityLabel);
+    opacityRow.appendChild(opacitySlider);
+    opacityRow.appendChild(opacityValue);
+    opacityRow.appendChild(infoButton);
+    opacityRow.appendChild(infoIcon);
+
+    item.appendChild(header);
+    item.appendChild(typeText);
+    item.appendChild(opacityRow);
+
+//
+
+    layerList.appendChild(item);
+
+    layerData.element = item;
+
+    visibleCheckbox.addEventListener(
+        "change",
+        function () {
+
+            if (!map.getLayer(layerData.layerId)) {
+                return;
+            }
+
+            map.setLayoutProperty(
+                layerData.layerId,
+                "visibility",
+                visibleCheckbox.checked
+                    ? "visible"
+                    : "none"
+            );
+        }
+    );
+
+    opacitySlider.addEventListener(
+        "input",
+        function () {
+
+            if (!map.getLayer(layerData.layerId)) {
+                return;
+            }
+
+            const opacity =
+                Number(opacitySlider.value) / 10;
+
+            opacityValue.textContent =
+                opacity.toFixed(1);
+
+            layerData.opacity = opacity;
+
+            map.setPaintProperty(
+                layerData.layerId,
+                "raster-opacity",
+                opacity
+            );
+        }
+    );
+
+    zoomButton.addEventListener(
+        "click",
+        function () {
+
+            if (!layerData.bounds) {
+                return;
+            }
+
+            map.fitBounds(
+                layerData.bounds,
+                {
+                    padding: 30
+                }
+            );
+        }
+    );
+
+    deleteButton.addEventListener(
+        "click",
+        function () {
+
+            if (map.getLayer(layerData.layerId)) {
+                map.removeLayer(layerData.layerId);
+            }
+
+            if (map.getSource(layerData.sourceId)) {
+                map.removeSource(layerData.sourceId);
+            }
+
+            dynamicLayerData.delete(
+                layerData.layerId
+            );
+
+            item.remove();
+
+            updateNoLayerMessage();
+        }
+    );
+
+    dynamicLayerData.set(
+        layerData.layerId,
+        layerData
+    );
+
+    updateNoLayerMessage();
+}
+
+document
+    .getElementById("loadNewImageButton")
+    .addEventListener("click", async function () {
+
+        const imageType =
+            imageTypeInput.value;
+
+        const imageName =
+            newImageNameInput.value.trim();
+
+        const url =
+            newImageUrlInput.value.trim();
+
+        const opacity =
+            Number(newImageOpacityInput.value) / 10;
+
+        if (!url) {
+            imageDialogMessage.style.color =
+                "#c62828";
+
+            imageDialogMessage.textContent =
+                "URLを入力してください。";
+
+            return;
+        }
+
+        dynamicLayerCounter += 1;
+
+        const sourceId =
+            `dynamic-image-${dynamicLayerCounter}`;
+
+        const layerId =
+            `dynamic-image-${dynamicLayerCounter}-layer`;
+
+        const displayName =
+            imageName ||
+            `画像 ${dynamicLayerCounter}`;
+
+        const loadButton =
+            document.getElementById(
+                "loadNewImageButton"
+            );
+
+        loadButton.disabled = true;
+
+        imageDialogMessage.style.color = "#333";
+        imageDialogMessage.textContent =
+            "画像を読み込んでいます...";
+
+        try {
+            const result = await loadImageByType(
+                imageType,
+                url,
+                sourceId,
+                layerId,
+                opacity
+            );
+
+            createDynamicLayerControl({
+                name: displayName,
+                imageType: imageType,
+                url: url,
+                sourceId: sourceId,
+                layerId: layerId,
+                opacity: opacity,
+                bounds: result.bounds
+            });
+
+            newImageNameInput.value = "";
+            newImageUrlInput.value = "";
+
+            imageDialogMessage.style.color =
+                "green";
+
+            imageDialogMessage.textContent =
+                `${displayName}を追加しました。`;
+
+            setTimeout(function () {
+                closeImageDialog();
+            }, 400);
+
+        } catch (error) {
+
+            console.error(
+                "画像レイヤー追加エラー:",
+                error
+            );
+
+            if (map.getLayer(layerId)) {
+                map.removeLayer(layerId);
+            }
+
+            if (map.getSource(sourceId)) {
+                map.removeSource(sourceId);
+            }
+
+            imageDialogMessage.style.color =
+                "#c62828";
+
+            imageDialogMessage.textContent =
+                `追加できませんでした: ${error.message}`;
+
+        } finally {
+            loadButton.disabled = false;
+        }
+    });
+
+// added on 2026-10-15
+const layonoff1 =
+    document.getElementById("osm-layer");
+
+layonoff1.addEventListener(
+    "change",
+    function () {
+
+        if (!map.getLayer("osm-layer")) {
+            return;
+        }
+
+        map.setLayoutProperty(
+            "osm-layer",
+            "visibility",
+            layonoff1.checked
+                ? "visible"
+                : "none"
+        );
+    }
+);
+
+// added on 2026-10-15
+let clickedText = "---";
+
+function updateMapInfo() {
+
+    const info =
+        document.getElementById("mapInfo");
+
+    if (!info) {
+        return;
+    }
+
+    const center = map.getCenter();
+    const zoom = map.getZoom();
+
+    info.innerHTML =
+        `Center Lon: ${center.lng.toFixed(6)}<br>` +
+        `Center Lat: ${center.lat.toFixed(6)}<br>` +
+        `Zoom: ${zoom.toFixed(2)}<br>` +
+        `Click: ${clickedText}`;
+}
+
+map.on("move", updateMapInfo);
+
+map.on("click", function (event) {
+
+    clickedText =
+        `${event.lngLat.lng.toFixed(6)}, ` +
+        `${event.lngLat.lat.toFixed(6)}`;
+
+    updateMapInfo();
+});
+
+map.on("load", updateMapInfo);
+
+    </script>
+    </body> 
+</html>
